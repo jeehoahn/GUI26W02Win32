@@ -12,6 +12,8 @@
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
 WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
+bool isDrawing = false;                         // 좌클릭을 누루는 상태에서 마우스를 움직이는지 구별해주는데 도움을 주는 변수
+bool isErasing = false;
 
 //static int x = -100, y = 100;
 
@@ -148,6 +150,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     break;
     case WM_LBUTTONDOWN:
     {
+        isDrawing = true;
         POINT p;
         p.x = LOWORD(lParam);
         p.y = HIWORD(lParam);
@@ -157,31 +160,69 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         InvalidateRect(hWnd, NULL, TRUE);
     }
     break;
+    case WM_LBUTTONUP:
+    {
+        isDrawing = false;
+    }
+    break;
+    case WM_MOUSEMOVE:
+    {
+        if (isDrawing)
+        {
+            POINT p;
+            p.x = LOWORD(lParam);
+            p.y = HIWORD(lParam);
+
+            AddPoint(p);
+
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+    }
+    break;
+    case WM_RBUTTONDOWN:
+    {
+        DeleteLastPoint();
+        SetTimer(hWnd, 1, 50, NULL);
+        InvalidateRect(hWnd, NULL, TRUE);
+    }
+    break;
+    case WM_RBUTTONUP:
+    {
+        KillTimer(hWnd, 1);
+    }
+    break;
+    case WM_TIMER:
+    {
+        DeleteLastPoint();
+
+        InvalidateRect(hWnd, NULL, TRUE);
+    }
+    break;
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
-        // TODO: 여기에 그리기 코드를 추가합니다...
 
-        HBRUSH yellow, oldBrush;
-        yellow = CreateSolidBrush(RGB(255, 255, 0));
-        oldBrush = (HBRUSH)SelectObject(hdc, yellow);
-
-        HPEN blue, oldPen;
-        blue = CreatePen(PS_SOLID, 2, RGB(0, 0, 255));
-        oldPen = (HPEN)SelectObject(hdc, blue);
+        HBRUSH black, oldBrush;
+        black = CreateSolidBrush(RGB(0, 0, 0));
+        oldBrush = (HBRUSH)SelectObject(hdc, black);
 
         int n = GetNumPoints();
-        for (int i = 0; i < n; i++) {
-            POINT p = GetPoint(i);
-            Ellipse(hdc, p.x - 30, p.y - 30, p.x + 30, p.y + 30);
+
+        if (n > 0)
+        {
+            POINT p = GetPoint(0);
+            MoveToEx(hdc, p.x, p.y, NULL);
+
+            for (int i = 1; i < n; i++)
+            {
+                p = GetPoint(i);
+                LineTo(hdc, p.x, p.y);
+            }
         }
 
-        SelectObject(hdc, oldPen);
-        DeleteObject(blue);
-
         SelectObject(hdc, oldBrush);
-        DeleteObject(yellow);
+        DeleteObject(black);
 
         EndPaint(hWnd, &ps);
     }
@@ -192,6 +233,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
+
     return 0;
 }
 
